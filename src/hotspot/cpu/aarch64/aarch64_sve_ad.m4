@@ -261,9 +261,28 @@ source %{
     }
   }
 
+  // TODO: add unary/ternary/reduction/load opcodes
+  static const int supported_mask_vector_list[] = {
+    Op_AddVB, Op_AddVS, Op_AddVI, Op_AddVL, Op_AddVF, Op_AddVD,
+    Op_SubVB, Op_SubVS, Op_SubVI, Op_SubVL, Op_SubVF, Op_SubVD,
+    Op_MulVB, Op_MulVS, Op_MulVI, Op_MulVL, Op_MulVF, Op_MulVD,
+    Op_DivVF, Op_DivVD,
+    Op_MinV , Op_MaxV ,
+    Op_AndV , Op_XorV , Op_OrV,
+    Op_LShiftVB, Op_LShiftVS, Op_LShiftVI, Op_LShiftVL,
+    Op_RShiftVB, Op_RShiftVS, Op_RShiftVI, Op_RShiftVL,
+    Op_URShiftVB, Op_URShiftVS, Op_URShiftVI, Op_URShiftVL,
+    Op_StoreVectorMasked
+  };
+
   bool masked_op_sve_supported(int opcode) {
-    // TODO: list opcodes that are not supported with predicate feature
-    return true;
+    int cnt = sizeof(supported_mask_vector_list)/sizeof(int);
+    for (int i = 0; i < cnt; i++) {
+      if (opcode == supported_mask_vector_list[i]) {
+        return true;
+      }
+    }
+    return false;
   }
 
 %}

@@ -106,6 +106,7 @@ class VectorNode : public TypeNode {
   static bool is_vector_shift_count(Node* n) {
     return is_vector_shift_count(n->Opcode());
   }
+  static bool is_vector_commutative(int opc);
 };
 
 //===========================Vector=ALU=Operations=============================
@@ -177,6 +178,7 @@ class ReductionNode : public Node {
   virtual uint ideal_reg() const {
     return bottom_type()->ideal_reg();
   }
+  virtual Node* Identity(PhaseGVN* phase);
 };
 
 //------------------------------AddReductionVINode--------------------------------------
@@ -1287,6 +1289,7 @@ class VectorBlendNode : public VectorNode {
   Node* vec1() const { return in(1); }
   Node* vec2() const { return in(2); }
   Node* vec_mask() const { return in(3); }
+  virtual Node* Identity(PhaseGVN* phase);
 };
 
 class VectorRearrangeNode : public VectorNode {

@@ -610,6 +610,32 @@ bool VectorNode::is_vector_shift_count(int opc) {
   }
 }
 
+bool VectorNode::is_vector_commutative(int opc) {
+  assert(opc > _last_machine_leaf && opc < _last_opcode, "invalid opcode");
+  switch (opc) {
+  case Op_AddVB:
+  case Op_AddVS:
+  case Op_AddVI:
+  case Op_AddVL:
+  case Op_AddVF:
+  case Op_AddVD:
+  case Op_MulVB:
+  case Op_MulVS:
+  case Op_MulVI:
+  case Op_MulVL:
+  case Op_MulVF:
+  case Op_MulVD:
+  case Op_AndV:
+  case Op_OrV:
+  case Op_XorV:
+  case Op_MinV:
+  case Op_MaxV:
+    return true;
+  default:
+    return false;
+  }
+}
+
 static bool is_con_M1(Node* n) {
   if (n->is_Con()) {
     const Type* t = n->bottom_type();
@@ -807,6 +833,68 @@ VectorBlendNode* VectorBlendNode::make(PhaseGVN& gvn, Node* vec1, Node* vec2, No
     mask = gvn.transform(new VectorToMaskNode(mask, vmask_type));
   }
   return new VectorBlendNode(vec1, vec2, mask);
+}
+
+Node* VectorBlendNode::Identity(PhaseGVN* phase) {
+  Node* mask = vec_mask();
+  if (!Matcher::has_predicated_vectors() ||
+      !mask->is_VectorMask())
+  return this;
+
+  // Start to convert to supported masked vectors.
+  // Eg: VectorBlend (src1 (AddVI src1 src2) mask)  ==> AddVI (src1 src2 mask).
+  Node* v1 = vec1();
+  Node* v2 = vec2();
+
+  // Do not do the convert if the original operation is used elsewhere.
+  if (v2->outcnt() > 1) {
+    return this;
+  }
+
+  int vopc = v2->Opcode();
+  const TypeVect* type = v2->bottom_type()->is_vect();
+  int vlen = (int)type->length();
+  BasicType elem_bt = type->element_basic_type();
+  if (!Matcher::match_rule_supported_masked_vector(vopc, vlen, elem_bt)) {
+    return this;
+  }
+
+  // Currently focus on binary operations.
+  Node* operation = NULL;
+  if (is_vector_commutative(vopc)) {
+    assert(v2->req() == 3, "Invalid commutative opcode");
+    // Commutative might have swapped the inputs. For masked vectors, it
+    // needs to make sure the first input is "v1".
+    Node* in1 = NULL;
+    Node* in2 = NULL;
+    if (v2->in(1) == v1) {
+      in1 = v2->in(1);
+      in2 = v2->in(2);
+    } else if (v2->in(2) == v1) {
+      in1 = v2->in(2);
+      in2 = v2->in(1);
+    }
+    operation = in1 != NULL ? v2->clone_with_data_edge(in1, in2) : NULL;
+  } else if (vopc == Op_LoadVector) {
+    // TODO: mask support for load vector. The expected mask IR is
+    // LoadVectorMaskedNode.
+    operation = NULL;
+  } else {
+    // TODO: mask support for unary/ternary vectors.
+    // The first input of "v2" should be "v1". This might also apply
+    // to unary/ternary operations. It needs to have a check.
+    operation = v2->in(1) == v1 ? v2->clone() : NULL;
+  }
+
+  if (operation == NULL) {
+    // Not the supported mask pattern.
+    return this;
+  }
+
+  if (vopc != Op_LoadVector) {
+    operation->add_req(mask);
+  }
+  return phase->transform(operation);
 }
 
 int ExtractNode::opcode(BasicType bt) {
@@ -1023,6 +1111,11 @@ ReductionNode* ReductionNode::make(int opc, Node *ctrl, Node* n1, Node* n2, Basi
     assert(false, "unknown node: %s", NodeClassNames[vopc]);
     return NULL;
   }
+}
+
+Node* ReductionNode::Identity(PhaseGVN* phase) {
+  // TODO: mask support for masked reduction operations.
+  return this;
 }
 
 Node* VectorLoadMaskNode::Identity(PhaseGVN* phase) {
