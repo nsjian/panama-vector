@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -333,6 +333,23 @@ public class VectorSupport {
                StoreVectorOperation<C, V> defaultImpl) {
         assert isNonCapturingLambda(defaultImpl) : defaultImpl;
         defaultImpl.store(container, index, v);
+    }
+
+    public interface StoreVectorMaskedOperation<C, V extends Vector<?>, M extends VectorMask<?>> {
+        void store(C container, int index, V v, M m);
+    }
+
+    @IntrinsicCandidate
+    public static
+    <C, V extends Vector<?>,
+     M extends VectorMask<?>>
+    void storeMasked(Class<?> vectorClass, Class<M> maskClass, Class<?> elementType,
+                     int length, Object base, long offset,   // Unsafe addressing
+                     V v, M m,
+                     C container, int index,      // Arguments for default implementation
+                     StoreVectorMaskedOperation<C, V, M> defaultImpl) {
+        assert isNonCapturingLambda(defaultImpl) : defaultImpl;
+        defaultImpl.store(container, index, v, m);
     }
 
     /* ============================================================================ */
