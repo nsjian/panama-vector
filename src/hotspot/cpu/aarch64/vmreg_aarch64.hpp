@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
@@ -34,18 +34,25 @@ inline bool is_FloatRegister() {
   return value() >= ConcreteRegisterImpl::max_gpr && value() < ConcreteRegisterImpl::max_fpr;
 }
 
-inline Register as_Register() {
+inline bool is_PRegister() {
+  return value() >= ConcreteRegisterImpl::max_fpr && value() < ConcreteRegisterImpl::max_pr;
+}
 
-  assert( is_Register(), "must be");
-  // Yuk
+inline Register as_Register() {
+  assert(is_Register(), "must be");
   return ::as_Register(value() / RegisterImpl::max_slots_per_register);
 }
 
 inline FloatRegister as_FloatRegister() {
-  assert( is_FloatRegister() && is_even(value()), "must be" );
-  // Yuk
+  assert(is_FloatRegister() && is_even(value()), "must be");
   return ::as_FloatRegister((value() - ConcreteRegisterImpl::max_gpr) /
                             FloatRegisterImpl::max_slots_per_register);
+}
+
+inline PRegister as_PRegister() {
+  assert(is_PRegister(), "must be");
+  return ::as_PRegister((value() - ConcreteRegisterImpl::max_fpr) /
+                        PRegisterImpl::max_slots_per_register);
 }
 
 inline   bool is_concrete() {
